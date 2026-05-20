@@ -1,0 +1,23 @@
+# Secrets
+.env
+*.json.key
+service-account*.json
+*credentials*.json
+
+# dbt
+target/
+dbt_packages/
+.dbt/
+logs/
+
+# Python (if used later)
+__pycache__/
+*.pyc
+.venv/
+
+# OS junk
+.DS_Store
+Thumbs.db
+
+# VSCode
+.vscode/settings.json
