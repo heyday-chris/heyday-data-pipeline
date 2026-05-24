@@ -429,3 +429,22 @@ Each recipe version contains a `recipeversionrows` array. Each element has:
 | 2026-05-20 | Append-only raw tables in BigQuery | Preserves full history; deduplication handled in dbt staging layer |
 | 2026-05-20 | Skip dbt for Phase 1 MVP | Prove ingestion works first; add transformation once data is confirmed correct |
 | 2026-05-20 | Use `git config --local` for identity | Isolates work GitHub account to this repo only |
+## FlavorStudio API Reference
+
+- Base URL: `https://app.flavorstudio.com/`
+- Auth: HTTP Basic Auth (public key = username, private key = password)
+- API version: v2
+- Full docs: https://www.flavorstudio.com/api
+
+### Endpoints Used by This Pipeline
+
+| Purpose | Endpoint |
+|---|---|
+| List all recipes | `GET /api/v2/get/recipes?step=100` |
+| Get single recipe | `GET /api/v2/get/recipe/{id}` |
+| List all ingredients | `GET /api/v2/get/ingredients?step=100` |
+
+### Notes
+- `recipeversionrows[].process_step` distinguishes kettle vs fill steps — verify actual values against CCCH recipe before Phase 2
+- `remaining_daily_api_requests` returned on every response — log to `flavorstudio_sync_log`
+- Pagination: max `step=100` per page, use `page` param for larger datasets
