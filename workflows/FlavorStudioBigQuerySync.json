@@ -1,0 +1,315 @@
+{
+  "name": "FlavorStudio → BigQuery Sync",
+  "nodes": [
+    {
+      "parameters": {},
+      "type": "n8n-nodes-base.manualTrigger",
+      "typeVersion": 1,
+      "position": [
+        -688,
+        -112
+      ],
+      "id": "7adef9f0-25fb-4299-9177-a38bbf6b8990",
+      "name": "When clicking ‘Execute workflow’"
+    },
+    {
+      "parameters": {
+        "url": "https://app.flavorstudio.com/api/v2/get/recipes",
+        "authentication": "genericCredentialType",
+        "genericAuthType": "httpBasicAuth",
+        "sendQuery": true,
+        "queryParameters": {
+          "parameters": [
+            {
+              "name": "step",
+              "value": "100"
+            },
+            {
+              "name": "page",
+              "value": "1"
+            }
+          ]
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.4,
+      "position": [
+        -528,
+        -112
+      ],
+      "id": "a30e2f41-14d4-4b82-ac5a-2c99f1b819e2",
+      "name": "Get Recipes",
+      "credentials": {
+        "httpBasicAuth": {
+          "id": "dz5PLA3pgF0svhuB",
+          "name": "FlavorStudio API"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "options": {}
+      },
+      "type": "n8n-nodes-base.splitInBatches",
+      "typeVersion": 3,
+      "position": [
+        -192,
+        -32
+      ],
+      "id": "52f7b621-d62e-4877-9255-8a49ee28d3a8",
+      "name": "Loop Over Items"
+    },
+    {
+      "parameters": {
+        "jsCode": "const recipe = $input.first().json.data;\nconst syncTimestamp = new Date().toISOString();\nconst syncRunId = $execution.id;\n\nif (!recipe.recipeversions || recipe.recipeversions.length === 0) {\n  return [{ json: {\n    _extracted_at: syncTimestamp,\n    _extraction_run_id: syncRunId,\n    _page: \"1\",\n    unique_id: String(recipe.unique_id),\n    recipe_name: recipe.recipe_name ?? \"\",\n    recipe_code: recipe.recipe_code ?? \"\",\n    type: recipe.type ?? \"\",\n    recipe_in_production: \"0\",\n    recipe_archived: \"0\",\n    created: recipe.created ?? \"\",\n    last_modified: recipe.last_modified ?? \"\",\n    recipeversion_version: \"SKIP\",\n    recipeversion_name: \"SKIP\",\n    recipeversion_notes: \"\",\n    entered_batch_size: \"0\",\n    batch_unit: \"\",\n    recipeversionrows_json: \"[]\",\n    tags_json: \"[]\",\n  }}];\n}\n\nconst rows = [];\n\nfor (const version of recipe.recipeversions) {\n  rows.push({\n    _extracted_at: syncTimestamp,\n    _extraction_run_id: syncRunId,\n    _page: \"1\",\n    unique_id: String(recipe.unique_id),\n    recipe_name: recipe.recipe_name,\n    recipe_code: recipe.recipe_code,\n    type: recipe.type,\n    recipe_in_production: String(recipe.recipe_in_production),\n    recipe_archived: String(recipe.recipe_archived),\n    created: recipe.created,\n    last_modified: recipe.last_modified,\n    recipeversion_version: String(version.recipeversion_version),\n    recipeversion_name: version.recipeversion_name,\n    recipeversion_notes: version.recipeversion_notes,\n    entered_batch_size: String(version.entered_batch_size),\n    batch_unit: version.batch_unit,\n    recipeversionrows_json: JSON.stringify(version.recipeversionrows),\n    tags_json: JSON.stringify(recipe.tags),\n  });\n}\n\nreturn rows.map(row => ({ json: row }));"
+      },
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        144,
+        96
+      ],
+      "id": "8340d47e-d0d8-40e9-b912-a26fb4c1763f",
+      "name": "Code in JavaScript1"
+    },
+    {
+      "parameters": {
+        "authentication": "serviceAccount",
+        "operation": "insert",
+        "projectId": {
+          "__rl": true,
+          "value": "heyday-bigquery-dev",
+          "mode": "list",
+          "cachedResultName": "heyday-bigquery-dev",
+          "cachedResultUrl": "https://console.cloud.google.com/bigquery?project=heyday-bigquery-dev"
+        },
+        "datasetId": {
+          "__rl": true,
+          "value": "heyday_raw",
+          "mode": "list",
+          "cachedResultName": "heyday_raw"
+        },
+        "tableId": {
+          "__rl": true,
+          "value": "flavorstudio_recipes_raw",
+          "mode": "list",
+          "cachedResultName": "flavorstudio_recipes_raw"
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.googleBigQuery",
+      "typeVersion": 2.1,
+      "position": [
+        -400,
+        112
+      ],
+      "id": "08c9c64c-a543-4da9-8b9f-3c91a9519998",
+      "name": "Insert rows in a table",
+      "credentials": {
+        "googleApi": {
+          "id": "zYPVXZj4ffkFMrAx",
+          "name": "Heyday BigQuery — Service Account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "jsCode": "const syncTimestamp = new Date().toISOString();\nconst syncRunId = $execution.id;\n\nreturn [{\n  json: {\n    _extracted_at: syncTimestamp,\n    _extraction_run_id: syncRunId,\n    run_id: syncRunId,\n    sync_timestamp: syncTimestamp,\n    total_recipes_processed: 87,\n    errors: null,\n  }\n}];"
+      },
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        16,
+        -64
+      ],
+      "id": "478215cf-19ef-4cde-a4de-f78c0cfd2b63",
+      "name": "Build Sync Log Row"
+    },
+    {
+      "parameters": {
+        "jsCode": "return $input.first().json.recipes.map(r => ({ json: r }));"
+      },
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        -368,
+        -112
+      ],
+      "id": "28499416-46ef-43f5-bd71-fcca7fc6759b",
+      "name": "map recipes to items"
+    },
+    {
+      "parameters": {
+        "url": "=https://app.flavorstudio.com/api/v2/get/recipe/{{ $json.unique_id }}",
+        "authentication": "genericCredentialType",
+        "genericAuthType": "httpBasicAuth",
+        "options": {}
+      },
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.4,
+      "position": [
+        -32,
+        96
+      ],
+      "id": "7702b93e-3b99-4e04-8f20-e2ec2cca3979",
+      "name": "Get Recipe Detail",
+      "credentials": {
+        "httpBasicAuth": {
+          "id": "dz5PLA3pgF0svhuB",
+          "name": "FlavorStudio API"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "authentication": "serviceAccount",
+        "operation": "insert",
+        "projectId": {
+          "__rl": true,
+          "value": "heyday-bigquery-dev",
+          "mode": "list",
+          "cachedResultName": "heyday-bigquery-dev",
+          "cachedResultUrl": "https://console.cloud.google.com/bigquery?project=heyday-bigquery-dev"
+        },
+        "datasetId": {
+          "__rl": true,
+          "value": "heyday_raw",
+          "mode": "list",
+          "cachedResultName": "heyday_raw"
+        },
+        "tableId": {
+          "__rl": true,
+          "value": "flavorstudio_sync_log",
+          "mode": "list",
+          "cachedResultName": "flavorstudio_sync_log"
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.googleBigQuery",
+      "typeVersion": 2.1,
+      "position": [
+        224,
+        -64
+      ],
+      "id": "8f2b17b7-ad41-46c5-81b2-437ee6f2842b",
+      "name": "Insert rows in a table1",
+      "credentials": {
+        "googleApi": {
+          "id": "zYPVXZj4ffkFMrAx",
+          "name": "Heyday BigQuery — Service Account"
+        }
+      }
+    }
+  ],
+  "pinData": {},
+  "connections": {
+    "When clicking ‘Execute workflow’": {
+      "main": [
+        [
+          {
+            "node": "Get Recipes",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Get Recipes": {
+      "main": [
+        [
+          {
+            "node": "map recipes to items",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Loop Over Items": {
+      "main": [
+        [
+          {
+            "node": "Build Sync Log Row",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Get Recipe Detail",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Code in JavaScript1": {
+      "main": [
+        [
+          {
+            "node": "Insert rows in a table",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Insert rows in a table": {
+      "main": [
+        [
+          {
+            "node": "Loop Over Items",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "map recipes to items": {
+      "main": [
+        [
+          {
+            "node": "Loop Over Items",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Get Recipe Detail": {
+      "main": [
+        [
+          {
+            "node": "Code in JavaScript1",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Build Sync Log Row": {
+      "main": [
+        [
+          {
+            "node": "Insert rows in a table1",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "active": false,
+  "settings": {
+    "executionOrder": "v1",
+    "binaryMode": "separate"
+  },
+  "versionId": "fcc16802-6d99-4d32-b6e3-4d76a20f15b8",
+  "meta": {
+    "templateCredsSetupCompleted": true,
+    "instanceId": "88d9108cd760a5892c5b3af9e72bde80fb271c8891ea2cf83d9253729bb7d926"
+  },
+  "id": "jbbLnovxBJyPjZJ6",
+  "tags": []
+}
